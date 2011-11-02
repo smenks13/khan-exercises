@@ -57,7 +57,7 @@
 							6 - Math.max(TRIANGLE.points[0][1], TRIANGLE.points[1][1], TRIANGLE.points[2][1])
 						]);
 
-						TRIANGLE.draw();
+						path( [ lineMidpoint( TRIANGLE.sides[ 2 ] ), TRIANGLE.points[2], TRIANGLE.points[1], TRIANGLE.points[0], lineMidpoint( TRIANGLE.sides[ 2 ] ) ] );
 						addTriangleDecorations( TRIANGLE, TYPE );
 					</div>
 				</div>
