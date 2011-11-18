@@ -1198,9 +1198,9 @@ var Khan = (function() {
 						}
 					};
 
-					if ( thisSlide.data( "guess" ) !== undefined && jQuery.isFunction( validator.showInteractiveGuess ) ) {
+					if ( thisSlide.data( "guess" ) !== undefined && jQuery.isFunction( validator.showCustomGuess ) ) {
 						KhanUtil.currentGraph = jQuery( realWorkArea ).find( ".graphie" ).data( "graphie" );
-						validator.showInteractiveGuess( thisSlide.data( "guess" ) );
+						validator.showCustomGuess( thisSlide.data( "guess" ) );
 						MathJax.Hub.Queue( recordState );
 					} else {
 						recordState();
@@ -1978,7 +1978,7 @@ var Khan = (function() {
 					+ "?seed=" + problemSeed
 					+ "&problem=" + problemID,
 				pathlink = "[" + path + ( exercise.data( "name" ) != null && exercise.data( "name" ) !== exerciseName ? " (" + exercise.data( "name" ) + ")" : "" ) + "](http://sandcastle.khanacademy.org/media/castles/Khan:master/exercises/" + path + "&debug)",
-				historyLink = "[Answer timeline](" + "http://sandcastle.khanacademy.org/media/castles/Khan:master/exercises/" + path + "&debug&activity=" + encodeURIComponent( JSON.stringify( userActivityLog ) ) + ")",
+				historyLink = "[Answer timeline](" + "http://sandcastle.khanacademy.org/media/castles/Khan:master/exercises/" + path + "&debug&activity=" + encodeURIComponent( JSON.stringify( userActivityLog ) ).replace( ")", "\\)" ) + ")",
 				agent = navigator.userAgent,
 				mathjaxInfo = "MathJax is " + ( typeof MathJax === "undefined" ? "NOT loaded" :
 					( "loaded, " + ( MathJax.isReady ? "" : "NOT ") + "ready, queue length: " + MathJax.Hub.queue.queue.length ) ),
@@ -2319,21 +2319,6 @@ var Khan = (function() {
 					var jel = jQuery("#exercise-message-container");
 					if (userState.template !== null) {
 						jel.empty().append(userState.template);
-
-						jQuery("#exercise-message-container a").click(function(evt){
-							var href = jQuery(this).attr("href");
-							var gotoDashboard = function(){ window.location = href; };
-
-							evt.preventDefault();
-
-							if(href.indexOf("dashboard") > -1){
-								gae_bingo.bingo("clicked_dashboard", gotoDashboard, gotoDashboard);
-							}
-						});
-
-						if(_.indexOf(userState.state, "proficient") !== -1 && userState.sees_graph){
-							drawGraph(userState.followups);
-						}
 						setTimeout(function(){ jel.slideDown(); }, 50);
 					}
 					else {
@@ -2377,25 +2362,16 @@ var Khan = (function() {
 		var icon = jQuery("#exercise-icon-container");
 		var exerciseStates = data && data.exercise_states;
 		if ( exerciseStates ){
-			for (state in exerciseStates){
-				if( exerciseStates.hasOwnProperty(state) ) {
-					if( exerciseStates[state] ) {
-						icon.addClass( state );
-					}else{
-						icon.removeClass( state );
-					}
-				}
-			}
+			var sPrefix = exerciseStates.summative ? "node-challenge" : "node";
+			var src = exerciseStates.review ? "/images/node-review.png" :
+					exerciseStates.suggested ? "/images/" + sPrefix + "-suggested.png" :
+						exerciseStates.proficient ? "/images/" + sPrefix + "-complete.png" :
+							"/images/" + sPrefix + "-not-started.png";
+			jQuery("#exercise-icon-container img").attr("src", src);
 
 			icon.addClass("hint" )
 				.click(function(){jQuery(this).toggleClass("hint");});
 
-			// this will be necessary to eventually support ie8 & friends
-			// if ( window.Raphael ) {
-			// 	// set up 30x30 rapahel canvas
-			// 	var state = Raphael("exercise-icon-container", 30, 30);
-			// // draw the state icon here
-			// }
 		}
 	};
 
@@ -2545,19 +2521,7 @@ var Khan = (function() {
 		jQuery(".streak-icon").css({width:"100%"});
 		jQuery(".streak-bar").toggleClass("proficient", data.progress >= 1.0);
 
-		// draw the exercise state icon
-		// Update the exercise icon
-		var exerciseStates = data && data.exercise_states;
-
-		if ( exerciseStates ) {
-			var sPrefix = exerciseStates.summative ? "node-challenge" : "node";
-			var src = exerciseStates.review ? "/images/node-review.png" :
-						exerciseStates.suggested ? "/images/" + sPrefix + "-suggested.png" :
-							exerciseStates.proficient ? "/images/" + sPrefix + "-complete.png" :
-								"/images/" + sPrefix + "-not-started.png";
-			jQuery("#exercise-icon-container img").attr("src", src);
-		}
-		//drawExerciseState( data );
+		drawExerciseState( data );
 
 		var videos = data && data.exercise_model.related_videos;
 		if ( videos && videos.length &&
