@@ -29,7 +29,7 @@
 					<var id="A1">[ Z1, Z1, Z2, Z5 ][ INDEX ]</var>
 					<var id="B1">Z3</var>
 					<var id="C1">A1 * X + B1 * Y</var>
-					<var id="A2">[ Z2, Z2, Z1, Z6 ][ INDEX ]</var>
+					<var id="A2">-A1</var>
 					<var id="B2">Z4</var>
 					<var id="C2">A2 * X + B2 * Y</var>
 					<var id="MULT1">[ 1, -A2 / A1, 1, A2 &gt; 0 &amp;&amp; A1 &lt; 0 ? A2 : -A2 ][ INDEX ]</var>
@@ -48,13 +48,10 @@
 				</div>
 				<div class="hints">
 					<p>We can eliminate <code>x</code> by adding the equations together when the <code>x</code> coefficients have opposite signs.</p>
-					<div data-if="INDEX !== 0">
-						<p>Multiply the <span data-if="INDEX === 2">bottom</span><span data-else>top</span> equation by <span data-if="INDEX === 2"><code><var>MULT2</var></code></span><span data-else><code><var>MULT1</var></code></span><span data-if="INDEX === 3"> and the bottom equation by <code><var>MULT2</var></code></span>.</p>
-						<p><code>\color{<var>BLUE</var>}{<var>expr(["+", ["*", A1 * MULT1, "x"], ["*", B1 * MULT1, "y"]])</var> = <var>C1 * MULT1</var>}</code><br />
-						<code class="hint_green"><var>expr(["+", ["*", A2 * MULT2, "x"], ["*", B2 * MULT2, "y"]])</var> = <var>C2 * MULT2</var></code></p>
-					</div>
 					<div>
-						<p>Add the top and bottom equations together.
+					    <p>Add the equations together. Notice that the terms <code class="hint_green"><var>expr(["*", A1, "x"])</var></code> and <code class="hint_blue"><var>expr(["*", A2, "x"])</var></code> cancel out.</p>
+					</div>
+					<div>    
 						<p data-if="( B1 * MULT1 + B2 * MULT2 ) !== 1"><code><var>expr(["*", B1 * MULT1 + B2 * MULT2, "y"])</var> = <var>C1 * MULT1 + C2 * MULT2</var></code></p>
 						<p data-if="( B1 * MULT1 + B2 * MULT2 ) !== 1"><code>\dfrac{<var>expr(["*", B1 * MULT1 + B2 * MULT2, "y"])</var>}{\color{<var>BLUE</var>}{<var>B1 * MULT1 + B2 * MULT2</var>}} = \dfrac{<var>C1 * MULT1 + C2 * MULT2</var>}{\color{<var>BLUE</var>}{<var>B1 * MULT1 + B2 * MULT2</var>}}</code></p>
 						<p><code>\color{<var>ORANGE</var>}{y = <var>Y</var>}</code></p>
@@ -85,7 +82,7 @@
 					<var id="B1">[ Z1, Z1, Z2, Z5 ][ INDEX ]</var>
 					<var id="C1">A1 * X + B1 * Y</var>
 					<var id="A2">Z4</var>
-					<var id="B2">[ Z2, Z2, Z1, Z6 ][ INDEX ]</var>
+					<var id="B2">-B1</var>
 					<var id="C2">A2 * X + B2 * Y</var>
 					<var id="MULT1">[ 1, -B2 / B1, 1, B2 &gt; 0 &amp;&amp; B1 &lt; 0 ? B2 : -B2 ][ INDEX ]</var>
 					<var id="MULT2">[ 1, 1, -B1 / B2, B2 &gt; 0 &amp;&amp; B1 &lt; 0 ? -B1 : B1 ][ INDEX ]</var>
@@ -103,13 +100,10 @@
 				</div>
 				<div class="hints">
 					<p>We can eliminate <code>y</code> by adding the equations together when the <code>y</code> coefficients have opposite signs.</p>
-					<div data-if="INDEX !== 0">
-						<p>Multiply the <span data-if="INDEX === 2">bottom</span><span data-else>top</span> equation by <span data-if="INDEX === 2"><code><var>MULT2</var></code></span><span data-else><code><var>MULT1</var></code></span><span data-if="INDEX === 3"> and the bottom equation by <code><var>MULT2</var></code></span>.</p>
-						<p><code>\color{<var>BLUE</var>}{<var>expr(["+", ["*", A1 * MULT1, "x"], ["*", B1 * MULT1, "y"]])</var> = <var>C1 * MULT1</var>}</code><br />
-						<code class="hint_green"><var>expr(["+", ["*", A2 * MULT2, "x"], ["*", B2 * MULT2, "y"]])</var> = <var>C2 * MULT2</var></code></p>
-					</div>
 					<div>
-						<p>Add the top and bottom equations together.
+						<p>Add the equations together. Notice that the terms <code class="hint_green"><var>expr(["*", B1, "y"])</var></code> and <code class="hint_blue"><var>expr(["*", B2, "y"])</var></code> cancel out.</p>
+					</div>
+					<div>	    
 						<p data-if="( A1 * MULT1 + A2 * MULT2 ) !== 1"><code><var>expr(["*", A1 * MULT1 + A2 * MULT2, "x"])</var> = <var>C1 * MULT1 + C2 * MULT2</var></code></p>
 						<p data-if="( A1 * MULT1 + A2 * MULT2 ) !== 1"><code>\dfrac{<var>expr(["*", A1 * MULT1 + A2 * MULT2, "x"])</var>}{\color{<var>BLUE</var>}{<var>A1 * MULT1 + A2 * MULT2</var>}} = \dfrac{<var>C1 * MULT1 + C2 * MULT2</var>}{\color{<var>BLUE</var>}{<var>A1 * MULT1 + A2 * MULT2</var>}}</code></p>
 						<p><code>\color{red}{x = <var>X</var>}</code></p>
@@ -119,8 +113,8 @@
 					</div>
 					<div>
 					    <p><code>\color{<var>BLUE</var>}{<span data-if="abs( A1 ) !== 1"><var>A1</var></span><span data-if="A1 === -1">-</span>}\color{red}{(<var>X</var>)}\color{<var>BLUE</var>}{ + <var>expr(["*", B1, "y"])</var> = <var>C1</var>}</code></p>
-					</div>
-					<div>    
+					</div>  
+					<div>  
 					    <p data-if="A1 !== 1"><code><var>expr(["+", A1 * X, ["*", B1, "y"]])</var> = <var>C1</var></code></p>
 						<p><code><var>A1 * X</var>\color{<var>BLUE</var>}{<var>SIGN_1</var><var>abs( A1 * X )</var>} + <var>expr(["*", B1, "y"])</var> = <var>C1</var>\color{<var>BLUE</var>}{<var>SIGN_1</var><var>abs( A1 * X )</var>}</code></p>
 						<p data-if="B1 !== 1"><code><var>expr(["*", B1, "y"])</var> = <var>C1 - A1 * X</var></code></p>

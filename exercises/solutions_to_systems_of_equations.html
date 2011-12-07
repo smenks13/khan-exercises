@@ -78,7 +78,7 @@
 					</div>
 				</div>
 			</div>
-			<div id="one" data-type="original">
+			<div id="one_solution" data-type="original">
 				<div class="vars">
 					<var id="AB_VALS">[{ a: M1, b: Y1 }, { a: M2, b: Y2 }]</var>
 				</div>
@@ -113,14 +113,14 @@
 					<p>When two equations have different slopes, the lines will intersect once with one solution.</p>
 				</div>
 			</div>
-			<div id="infinite" data-type="original">
+			<div id="infinite_solutions" data-type="original">
 				<div class="vars">
 					<var id="AB_VALS">[{ a: M1, b: Y1 }, { a: M1, b: Y1 }]</var>
 				</div>
 				<div class="solution">Infinite solutions</div>
 				<div class="hints" data-apply="appendContents">
 					<div>
-						<p>Both equations have the same slope and the same x-intercept, which means the lines would completely overlap.</p>
+						<p>Both equations have the same slope and the same y-intercept, which means the lines would completely overlap.</p>
 						<div class="graphie" id="grid">
 							graphInit({
 								range: [[-10, 10], [-10, 10]],
@@ -142,14 +142,14 @@
 					<p>Since any solution of <code>\color{<var>BLUE</var>}{<var>EQUATIONS[0]</var>}</code> is also a solution of <code>\color{<var>GREEN</var>}{<var>EQUATIONS[1]</var>}</code>, there are infinitely many solutions.</p>
 				</div>
 			</div>
-			<div id="zero" data-type="original">
+			<div id="zero_solutions" data-type="original">
 				<div class="vars">
 					<var id="AB_VALS">[{ a: M1, b: Y1 }, { a: M1, b: Y2 }]</var>
 				</div>
 				<div class="solution">No solutions</div>
 				<div class="hints" data-apply="appendContents">
 					<div>
-						<p>Both equations have the same slope with different x-intercepts. This means the equations are parallel.</p>
+						<p>Both equations have the same slope with different y-intercepts. This means the equations are parallel.</p>
 						<div class="graphie" id="grid">
 							graphInit({
 								range: [[-10, 10], [-10, 10]],
