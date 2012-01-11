@@ -51,12 +51,12 @@ var Khan = (function() {
 	}
 
 	// Adapted from a comment on http://mathiasbynens.be/notes/localstorage-pattern
-	var localStorageEnabled = function() {
+	var sessionStorageEnabled = function() {
 		var enabled, uid = +new Date;
 		try {
-			localStorage[ uid ] = uid;
-			enabled = ( localStorage[ uid ] == uid );
-			localStorage.removeItem( uid );
+			sessionStorage[ uid ] = uid;
+			enabled = ( sessionStorage[ uid ] == uid );
+			sessionStorage.removeItem( uid );
 			return enabled;
 		}
 		catch( e ) {
@@ -64,12 +64,27 @@ var Khan = (function() {
 		}
 	}();
 
-	if ( !localStorageEnabled ) {
+	if ( !sessionStorageEnabled ) {
 		if ( typeof jQuery !== "undefined" ) {
 			warn( "You must enable DOM storage in your browser; see <a href='https://sites.google.com/a/khanacademy.org/forge/for-developers/how-to-enable-dom-storage'>here</a> for instructions.", false );
 		}
 		return;
 	}
+
+	// Clear out userExercise objects from localStorage in case we are over
+	// quota. They are now stored in sessionStorage when needed anyway.
+	(function() {
+		var i = 0;
+		while (i < localStorage.length) {
+			var key = localStorage.key(i);
+			if (key.indexOf('exercise:') === 0) {
+				delete localStorage[key];
+			}
+			else {
+				i++;
+			}
+		}
+	})();
 
 	// Prime numbers used for jumping through exercises
 	var primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43,
@@ -126,8 +141,8 @@ var Khan = (function() {
 	// The seed information
 	randomSeed,
 
-	// Get the username of the user
-	user = window.localStorage["exercise:lastUser"] || null,
+	// Holds the current username
+	user = null,
 	userCRC32,
 
 	// The current problem and its corresponding exercise
@@ -205,8 +220,6 @@ var Khan = (function() {
 	},
 	issueIntro = "Remember to check the hints and double check your math. All provided information will be public. Thanks for your help!",
 
-	relatedVideosForExercise = null,
-
 	modulesLoaded = false,
 
 	gae_bingo = window.gae_bingo || { bingo: function() {} };
@@ -215,8 +228,12 @@ var Khan = (function() {
 	// it significantly harder to cheat
 	try {
 		delete window.userExercise;
-	} catch(e) {
-		window.userExercise = undefined;
+	}
+	catch(e) {} // swallow exception from IE
+	finally {
+		if (window.userExercise) {
+			window.userExercise = undefined;
+		}
 	}
 
 	// Add in the site stylesheets
@@ -259,7 +276,8 @@ var Khan = (function() {
 			"word-problems": [ "math" ],
 			"derivative-intuition": [ "jquery.mobile.vmouse" ],
 			"unit-circle": [ "jquery.mobile.vmouse" ],
-			"interactive": [ "jquery.mobile.vmouse" ]
+			"interactive": [ "jquery.mobile.vmouse" ],
+			"mean-and-median": [ "stat" ]
 		},
 
 		warnTimeout: function() {
@@ -507,29 +525,132 @@ var Khan = (function() {
 			return actions;
 		})(),
 
-		showThumbnail: function( index ) {
-			jQuery( "#related-video-list .related-video-list li" ).each(function(i, el) {
-				if ( i === index ) {
-					jQuery( el )
-						.find( 'a.related-video-inline' ).hide().end()
-						.find( '.thumbnail' ).show();
-				}
-				else {
-					jQuery( el )
-						.find( 'a.related-video-inline' ).show().end()
-						.find( '.thumbnail' ).hide();
-				}
-			});
-		},
+		relatedVideos: {
+			videos: [],
 
-		// make a link to a related video, appending exercise ID.
-		relatedVideoHref: function(video, data) {
-			var exid_param = '';
-			data = data || userExercise;
-			if ( data ) {
-				exid_param = "?exid=" + data.exercise_model.name;
+			setVideos: function(videos) {
+				this.videos = videos || [];
+				this.render();
+			},
+
+			showThumbnail: function( index ) {
+				jQuery( "#related-video-list .related-video-list li" ).each(function(i, el) {
+					if ( i === index ) {
+						jQuery( el )
+							.find( 'a.related-video-inline' ).hide().end()
+							.find( '.thumbnail' ).show();
+					}
+					else {
+						jQuery( el )
+							.find( 'a.related-video-inline' ).show().end()
+							.find( '.thumbnail' ).hide();
+					}
+				});
+			},
+
+			// make a link to a related video, appending exercise ID.
+			makeHref: function(video, data) {
+				var exid = '';
+				data = data || userExercise;
+				if ( data ) {
+					exid = "?exid=" + data.exercise_model.name;
+				}
+				return video.relative_url + exid;
+			},
+
+			anchorElement: function( video, needComma ) {
+				var template = Templates.get("video.related-video-link");
+				return jQuery(template({
+					href: this.makeHref(video),
+					video: video,
+					separator: needComma
+				})).data('video', video);
+			},
+
+			renderInHeader: function() {
+				var container = jQuery(".related-content");
+				var jel = container.find(".related-video-list");
+				jel.empty();
+
+				_.each(this.videos, function(video, i) {
+					this.anchorElement(video, i < this.videos.length - 1)
+						.wrap("<li>").parent().appendTo(jel);
+				}, this);
+
+				container.toggle(this.videos.length > 0);
+			},
+
+			renderInSidebar: function() {
+				var container = jQuery(".related-video-box");
+				var jel = container.find(".related-video-list");
+				jel.empty();
+
+				var template = Templates.get('video.thumbnail');
+				_.each(this.videos, function(video, i) {
+					var thumbnailDiv = jQuery(template({
+						href: this.makeHref(video),
+						video: video
+					})).find('a.related-video').data('video', video).end();
+
+					var inlineLink = this.anchorElement(video)
+						.addClass("related-video-inline");
+
+					var sideBarLi = jQuery( "<li>" )
+						.append( inlineLink )
+						.append( thumbnailDiv );
+
+					if ( i > 0 ) {
+						thumbnailDiv.hide();
+					} else {
+						inlineLink.hide();
+					}
+					jel.append( sideBarLi );
+				}, this);
+
+				container.toggle(this.videos.length > 0);
+			},
+
+			hookup: function() {
+				// make caption slide up over the thumbnail on hover
+				var captionHeight = 45;
+				var marginTop = 23;
+				// queue:false to make sure these run simultaneously
+				var options = {duration: 150, queue: false};
+				jQuery(".related-video-box")
+					.delegate(".thumbnail", "mouseenter mouseleave", function(e) {
+						var el = $(e.currentTarget);
+						if (e.type == "mouseenter") {
+							el.	find( ".thumbnail_label" ).animate(
+									{ marginTop: marginTop },
+									options)
+								.end()
+								.find( ".thumbnail_teaser" ).animate(
+									{ height: captionHeight },
+									options)
+								.end();
+						} else {
+							el .find( ".thumbnail_label" ).animate(
+									{ marginTop: marginTop + captionHeight },
+									options)
+								.end()
+								.find( ".thumbnail_teaser" ).animate(
+									{ height: 0 },
+									options)
+								.end();
+						}
+					});
+			},
+
+			render: function() {
+				// don't try to render if templates aren't present (dev mode)
+				if (!window.Templates) return;
+
+				this.renderInSidebar();
+				// Review queue overlaps with the content here
+				if ( !reviewMode ) {
+					this.renderInHeader();
+				}
 			}
-			return video.relative_url + exid_param;
 		},
 
 		showSolutionButtonText: function() {
@@ -739,11 +860,11 @@ var Khan = (function() {
 		if ( user == null ) return;
 
 		var key = "exercise:" + user + ":" + exerciseName;
-		var oldVal = window.localStorage[ key ];
+		var oldVal = window.sessionStorage[ key ];
 
 		// We sometimes patch UserExercise.exercise_model with related_videos and
 		// sometimes don't, so extend existing objects to avoid erasing old values.
-		window.localStorage[ key ] = JSON.stringify( typeof oldVal === "string" ?
+		window.sessionStorage[ key ] = JSON.stringify( typeof oldVal === "string" ?
 				jQuery.extend( /* deep */ true, JSON.parse(oldVal), data ) : data );
 	}
 
@@ -849,7 +970,9 @@ var Khan = (function() {
 	function switchToExercise( exid ) {
 		exerciseName = exid;
 
-		setProblemNum( getData().total_done + 1 );
+		var newUserExercise = getData();
+
+		setProblemNum( newUserExercise.total_done + 1 );
 
 		// Get all problems of this exercise type...
 		var problems = exercises.filter(function() {
@@ -864,7 +987,10 @@ var Khan = (function() {
 		// Update the document title
 		var title = document.title;
 		document.title = getDisplayNameFromId( exid ) + " " +
-			title.slice( jQuery.inArray("|", title) );
+			title.slice( title.indexOf("|") );
+
+		// update related videos
+		Khan.relatedVideos.setVideos(newUserExercise.exercise_model.related_videos);
 	}
 
 	function makeProblem( id, seed ) {
@@ -978,11 +1104,21 @@ var Khan = (function() {
 			var exerciseStyleElem = jQuery( "head #exercise-inline-style" );
 
 			// Clear old exercise style definitions
-			exerciseStyleElem.empty();
+			if ( exerciseStyleElem.length && exerciseStyleElem[0].styleSheet ) {
+				// IE refuses to modify the contents of <style> the normal way
+				exerciseStyleElem[0].styleSheet.cssText = "";
+			} else {
+				exerciseStyleElem.empty();
+			}
 
 			// Then add rules specific to this exercise.
 			jQuery.each( exercise.data("style"), function( i, styleContents ) {
-				exerciseStyleElem.append( styleContents );
+				if ( exerciseStyleElem.length && exerciseStyleElem[0].styleSheet ) {
+					// IE refuses to modify the contents of <style> the normal way
+					exerciseStyleElem[0].styleSheet.cssText = exerciseStyleElem[0].styleSheet.cssText + styleContents;
+				} else {
+					exerciseStyleElem.append( styleContents );
+				}
 			});
 		}
 
@@ -1148,19 +1284,19 @@ var Khan = (function() {
 
 			jQuery.fn.disable = function() {
 				this.addClass( 'disabled' )
-				    .css( {
+					.css( {
 					cursor: 'default !important'
-				    } )
-				    .data( 'disabled', true );
+					} )
+					.data( 'disabled', true );
 				return this;
 			}
-			
+
 			jQuery.fn.enable = function() {
 				this.removeClass( 'disabled' )
-				    .css( {
+					.css( {
 					cursor: 'pointer'
-				    } )
-				    .data( 'disabled', false );
+					} )
+					.data( 'disabled', false );
 				return this;
 			}
 
@@ -1284,9 +1420,9 @@ var Khan = (function() {
 			jQuery.fn.scrubber = function() {
 				// create triangular scrubbers above and below current selection
 				var timeline = jQuery( '#timeline' ),
-				    scrubber1 = jQuery( '#scrubber1' ),
-				    scrubber2 = jQuery( '#scrubber2' ),
-				    scrubberCss = {
+					scrubber1 = jQuery( '#scrubber1' ),
+					scrubber2 = jQuery( '#scrubber2' ),
+					scrubberCss = {
 					display: 'block',
 					width: '0',
 					height: '0',
@@ -1294,7 +1430,7 @@ var Khan = (function() {
 					'border-right': '6px solid transparent',
 					position: 'absolute',
 					left: (timeline.scrollLeft() + this.position().left + this.outerWidth()/2 + 2) + 'px'
-				    };
+					};
 
 				scrubber1 = scrubber1.length ? scrubber1 : jQuery("<div id='scrubber1'>").appendTo( timeline );
 				scrubber2 = scrubber2.length ? scrubber2 : jQuery("<div id='scrubber2'>").appendTo( timeline );
@@ -1383,8 +1519,8 @@ var Khan = (function() {
 
 			var activate = function( slideNum ) {
 				var hint, thisState,
-				    thisSlide = states.eq( slideNum ),
-				    fadeTime = 150;
+					thisSlide = states.eq( slideNum ),
+					fadeTime = 150;
 
 				// All content for this state has been built before
 				if (statelist[slideNum]) {
@@ -1814,7 +1950,6 @@ var Khan = (function() {
 	}
 
 	function prepareSite() {
-
 		// Set exercise title
 		jQuery("#current-exercise").text( typeof userExercise !== "undefined" && userExercise.exercise_model ?
 			userExercise.exercise_model.display_name : document.title );
@@ -1977,11 +2112,11 @@ var Khan = (function() {
 
 				if ( typeof userExercise === "undefined" || !userExercise.tablet ) {
 					if ( user != null && exerciseName != null ) {
-						// Before we reload, clear out localStorage's UserExercise.
-						// If there' a discrepancy between server and localStorage such that
+						// Before we reload, clear out sessionStorage's UserExercise.
+						// If there' a discrepancy between server and sessionStorage such that
 						// problem numbers are out of order or anything else, we want
 						// to restart with whatever the server sends back on reload.
-						delete window.localStorage[ "exercise:" + user + ":" + exerciseName ];
+						delete window.sessionStorage[ "exercise:" + user + ":" + exerciseName ];
 					}
 
 					window.location.reload();
@@ -2245,9 +2380,9 @@ var Khan = (function() {
 				agent = navigator.userAgent,
 				mathjaxInfo = "MathJax is " + ( typeof MathJax === "undefined" ? "NOT loaded" :
 					( "loaded, " + ( MathJax.isReady ? "" : "NOT ") + "ready, queue length: " + MathJax.Hub.queue.queue.length ) ),
-				localStorageInfo = ( typeof localStorage === "undefined" || typeof localStorage.getItem === "undefined" ? "localStorage NOT enabled" : null ),
+				sessionStorageInfo = ( typeof sessionStorage === "undefined" || typeof sessionStorage.getItem === "undefined" ? "sessionStorage NOT enabled" : null ),
 				warningInfo = jQuery( "#warning-bar-content" ).text(),
-				parts = [ email ? "Reporter: " + email : null, jQuery( "#issue-body" ).val() || null, pathlink, historyLink, "    " + JSON.stringify( guessLog ), agent, localStorageInfo, mathjaxInfo, warningInfo ],
+				parts = [ email ? "Reporter: " + email : null, jQuery( "#issue-body" ).val() || null, pathlink, historyLink, "    " + JSON.stringify( guessLog ), agent, sessionStorageInfo, mathjaxInfo, warningInfo ],
 				body = jQuery.grep( parts, function( e ) { return e != null; } ).join( "\n\n" );
 
 			var mathjaxLoadFailures = jQuery.map( MathJax.Ajax.loading, function( info, script ) {
@@ -2601,6 +2736,15 @@ var Khan = (function() {
 				Khan.scratchpad.show();
 			}
 		}
+
+		Khan.relatedVideos.hookup();
+		if (userExercise) {
+			Khan.relatedVideos.setVideos(userExercise.exercise_model.related_videos);
+		}
+
+		if (window.ModalVideo) {
+			ModalVideo.hookup();
+		}
 	}
 
 	function setProblemNum( num ) {
@@ -2759,7 +2903,7 @@ var Khan = (function() {
 	// updateData is used to update some user interface elements as the result of
 	// a page load or after a post / problem attempt. updateData doesn't know if an
 	// attempt was successful or not, it's simply reacting to the state of the data
-	// object returned by the server (or window.localStorage for phantom users)
+	// object returned by the server (or window.sessionStorage for phantom users)
 	//
 	// It gets called a few times
 	// * by prepareUserExercise when it's setting up the exercise state
@@ -2838,104 +2982,7 @@ var Khan = (function() {
 		jQuery(".streak-bar").toggleClass("proficient", data.progress >= 1.0);
 
 		drawExerciseState( data );
-
-		var videos = data && data.exercise_model.related_videos;
-		if ( videos && videos.length && ( jQuery(".related-video-list").is(":empty")
-					|| relatedVideosForExercise !== data.exercise ) &&
-			typeof ModalVideo !== "undefined"
-		) {
-			displayRelatedVideos(videos);
-			ModalVideo && relatedVideosForExercise === null && ModalVideo.hookup();
-			relatedVideosForExercise = data.exercise;
-		}
-
-		// Hide related videos box if the videos shown are not for this exercise
-		if ( relatedVideosForExercise !== data.exercise ) {
-			jQuery( ".related-video-box, .related-content" ).hide();
-		}
 	}
-
-	function displayRelatedVideos( videos ) {
-		function relatedVideoAnchorElement( video, needComma ) {
-			var template = Templates.get("video.related-video-link");
-			return jQuery(template({
-				href: Khan.relatedVideoHref(video),
-				video: video,
-				separator: needComma
-			})).data('video', video);
-		}
-
-		function displayRelatedVideoInHeader( i, video ) {
-			var needComma = i < videos.length - 1;
-			var li = jQuery( "<li>" ).append( relatedVideoAnchorElement(video, needComma) );
-			jQuery( ".related-content > .related-video-list" ).append( li ).show();
-		}
-
-		function displayRelatedVideoInSidebar( i, video ) {
-			var template = Templates.get('video.thumbnail');
-			var thumbnailDiv = jQuery(template({
-				href: Khan.relatedVideoHref(video),
-				video: video
-			})).find('a.related-video').data('video', video).end();
-
-			var inlineLink = relatedVideoAnchorElement(video)
-				.addClass("related-video-inline");
-
-			var sideBarLi = jQuery( "<li>" )
-				.append( inlineLink )
-				.append( thumbnailDiv );
-
-			if ( i > 0 ) {
-				thumbnailDiv.hide();
-			} else {
-				inlineLink.hide();
-			}
-			jQuery( "#related-video-list .related-video-list" ).append( sideBarLi );
-		}
-
-		if ( window.Templates ) {
-			jQuery( ".related-video-list" ).empty();
-
-			jQuery.each( videos, displayRelatedVideoInSidebar );
-			jQuery( ".related-video-box" ).show();
-
-			// Review queue overlaps with the content here
-			if ( !reviewMode ) {
-				jQuery.each( videos, displayRelatedVideoInHeader );
-				jQuery( ".related-content" ).show();
-			}
-		}
-
-		// make caption slide up over the thumbnail on hover
-		var captionHeight = 45;
-		var defaultMarginTop = 23;
-		// queue:false to make sure these run simultaneously
-		var animationOptions = {duration: 150, queue: false};
-		jQuery( ".thumbnail" ).hover(
-			function() {
-				jQuery( this )
-					.find( ".thumbnail_label" ).animate(
-						{ marginTop: defaultMarginTop },
-						animationOptions
-					).end()
-					.find( ".thumbnail_teaser" ).animate(
-						{ height: captionHeight },
-						animationOptions
-					);
-			},
-			function() {
-				jQuery( this )
-					.find( ".thumbnail_label" ).animate(
-						{ marginTop: defaultMarginTop + captionHeight },
-						animationOptions
-					).end()
-					.find( ".thumbnail_teaser" ).animate(
-						{ height: 0 },
-						animationOptions
-					);
-			}
-		);
-	};
 
 	// Grab the cached UserExercise data from local storage
 	function getData() {
@@ -2944,7 +2991,7 @@ var Khan = (function() {
 			return userExercise;
 
 		} else {
-			var data = window.localStorage[ "exercise:" + user + ":" + exerciseName ];
+			var data = window.sessionStorage[ "exercise:" + user + ":" + exerciseName ];
 
 			// Parse the JSON if it exists
 			if ( data ) {
@@ -2973,6 +3020,8 @@ var Khan = (function() {
 		var rootName = self.data( "rootName" );
 
 		remoteCount++;
+
+		// Packing occurs on the server but at the same "exercises/" URL
 		jQuery.get( urlBase + "exercises/" + name + ".html", function( data, status, xhr ) {
 			var match, newContents;
 
@@ -2982,10 +3031,7 @@ var Khan = (function() {
 				return;
 			}
 
-			// Wrap everything in <pre> tags to keep IE from removing newlines
-			data = data.replace( /(<body[^>]*>)/, "$1<pre>" ).replace( "</body>", "</pre></body>" );
-
-			newContents = jQuery( data ).find( "div.exercise" );
+			newContents = jQuery( data );
 
 			// Name of the top-most ancestor exercise
 			newContents.data( "rootName", rootName );

@@ -230,8 +230,9 @@ jQuery.extend( Khan.answerTypes, {
 
 					// Replace unicode minus sign with hyphen
 					text = text.replace( /\u2212/, "-" );
+					text = text.replace( /[ \(\)]/g, "");
 
-					if ( match = text.match( /^log\(\s*(\S+)\s*\)$/i ) ) {
+					if ( match = text.match( /^log\s*(\S+)\s*$/i ) ) {
 						possibilities = forms.decimal.transformer( match[1] );
 					} else if ( text === "0") {
 						possibilities = [ { value: 0, exact: true } ];
@@ -554,10 +555,16 @@ jQuery.extend( Khan.answerTypes, {
 			});
 		};
 
-		ret.examples = solutionarea.find( ".example" ).remove()
-			.map(function(i, el) {
-				return jQuery( el ).html();
-			});
+		// If there's only a single sol in the multiple and there aren't any examples defined,
+		// use the examples from the single sol element.
+		if ( solutionarea.find( ".sol" ).length === 1 && solutionarea.find( ".example" ).length === 0 ) {
+			ret.examples = solutionarea.find( ".sol" ).first().data( "validator" ).examples;
+		} else {
+			ret.examples = solutionarea.find( ".example" ).remove()
+				.map(function(i, el) {
+					return jQuery( el ).html();
+				});
+		}
 		ret.solution = solutionArray;
 
 		return ret;
