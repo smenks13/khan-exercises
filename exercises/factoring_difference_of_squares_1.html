@@ -24,8 +24,8 @@
 				</div>
 
 				<div class="solution" data-type="set">
-					<div class="set-sol" data-type="regex">\s*\(\s*[xX]\s*\+\s*<var>abs( A )</var>\s*\)\s*\(\s*[xX]\s*-\s*<var>abs( A )</var>\s*\)\s*</div>
-					<div class="set-sol" data-type="regex">\s*\(\s*[xX]\s*-\s*<var>abs( A )</var>\s*\)\s*\(\s*[xX]\s*\+\s*<var>abs( A )</var>\s*\)\s*</div>
+					<div class="set-sol" data-type="regex">^\s*\(\s*[xX]\s*\+\s*<var>abs( A )</var>\s*\)\s*\(\s*[xX]\s*[-\u2212]\s*<var>abs( A )</var>\s*\)\s*$</div>
+					<div class="set-sol" data-type="regex">^\s*\(\s*[xX]\s*[-\u2212]\s*<var>abs( A )</var>\s*\)\s*\(\s*[xX]\s*\+\s*<var>abs( A )</var>\s*\)\s*$</div>
 					<div class="input-format"><span class="entry"></span></div>
 					<div class="example">a factored expression, like <b>(x+1)(x+2)</b></div>
 				</div>
@@ -33,7 +33,7 @@
 				<div class="hints">
 					<p>
 						The expression is in the form <code>\color{<var>PINK</var>}{a^2} - \color{<var>BLUE</var>}{b^2}</code>,
-						which a difference of two squares so we can factor it as
+						which is a difference of two squares so we can factor it as
 						<code>(\color{<var>PINK</var>}{a} + \color{<var>BLUE</var>}{b})
 						(\color{<var>PINK</var>}{a} - \color{<var>BLUE</var>}{b})</code>.
 					</p>
