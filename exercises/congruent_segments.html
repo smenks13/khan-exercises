@@ -2,7 +2,7 @@
 <html data-require="math graphie expressions">
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-	<title>Measuring segments 2</title>
+	<title>Congruent segments</title>
 	<script src="../khan-exercise.js"></script>
 	<style>
 		.lcol { text-align:left; width:200px; display:inline-block; }
@@ -14,7 +14,7 @@
 	<div class="problems">
 		<div>
 			<div class="vars">
-				<var id="SOLUTION">random() < 0.5 ? "Yes" : "No"</var>
+				<var id="SOLUTION">random() &lt; 0.5 ? "Yes" : "No"</var>
 				<div data-ensure="( SOLUTION === 'Yes' && POINTS[ 1 ] - POINTS[ 0 ] === POINTS[ 3 ] - POINTS[ 2 ] ) || ( SOLUTION === 'No' && POINTS[ 1 ] - POINTS[ 0 ] !== POINTS[ 3 ] - POINTS[ 2 ] )">
 					<var id="POINTS">sortNumbers( randRangeUnique( -5, 5, 4 ) )</var>
 				</div>
