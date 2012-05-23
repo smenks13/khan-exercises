@@ -51,7 +51,7 @@
       outbound or completed, respectively. Listeners can keep track of whether
       or not khan-exercises is still waiting on API responses.
 
-    * exerciseLoaded:[exercise-name] -- when an exercise and all of its
+    * exerciseLoaded:[exercise-id] -- when an exercise and all of its
       dependencies are loaded and ready to render
 
     * updateUserExercise -- when an updated userExercise has been received
@@ -157,8 +157,10 @@ var Khan = (function() {
     server = typeof apiServer !== "undefined" ? apiServer :
         testMode ? "http://localhost:8080" : "",
 
-    // The name of the exercise -- this will only be set here in testMode
-    exerciseName = ((/([^\/.]+)(?:\.html)?$/.exec(window.location.pathname) || [])[1]),
+    // The ID, filename, and name of the exercise -- these will only be set here in testMode
+    exerciseId = ((/([^\/.]+)(?:\.html)?$/.exec(window.location.pathname) || [])[1]) || "",
+    exerciseFile = exerciseId + ".html",
+    exerciseName = deslugify(exerciseId),
 
     // Bin users into a certain number of realms so that
     // there is some level of reproducability in their questions
@@ -213,12 +215,12 @@ var Khan = (function() {
 
     // Debug data dump
     dataDump = {
-        "exercise": exerciseName,
+        "exercise": exerciseId,
         "problems": [],
         "issues": 0
     },
 
-    // Dict of exercise names that are loading.
+    // Dict of exercise ids that are loading.
     // Values are number of remote exercises that are currently
     // pending in the middle of a load.
     loadingExercises = {},
@@ -228,10 +230,10 @@ var Khan = (function() {
 
     lastFocusedSolutionInput = null,
 
-    issueError = "Communication with GitHub isn't working. Please file "
-        + "the issue manually at <a href=\""
-        + "http://github.com/Khan/khan-exercises/issues/new\">GitHub</a>. "
-        + "Please reference exercise: " + exerciseName + ".",
+    issueError = "Communication with GitHub isn't working. Please file " +
+        "the issue manually at <a href=\"" +
+        "http://github.com/Khan/khan-exercises/issues/new\">GitHub</a>. " +
+        "Please reference exercise: " + exerciseId + ".",
     issueSuccess = function(url, title, suggestion) {
         return ["Thank you for your feedback! Your issue has been created and can be ",
             "found at the following link:",
@@ -300,8 +302,8 @@ var Khan = (function() {
         },
 
         warnTimeout: function() {
-            warn("Your internet might be too slow to see an exercise. Refresh the page "
-                + 'or <a href="" id="warn-report">report a problem</a>.', false);
+            warn("Your internet might be too slow to see an exercise. Refresh the page " +
+                'or <a href="" id="warn-report">report a problem</a>.', false);
             $("#warn-report").click(function(e) {
                 e.preventDefault();
                 $("#report").click();
@@ -677,7 +679,7 @@ var Khan = (function() {
         },
 
         showSolutionButtonText: function() {
-            return hintsUsed ? "Show step (" + hints.length + " left)" : "Show Solution";
+            return hintsUsed ? "Show next step (" + hints.length + " left)" : "Show Solution";
         }
 
     };
@@ -868,34 +870,36 @@ var Khan = (function() {
             .val("Please wait...");
     }
 
-    function isExerciseLoaded(exerciseName) {
+    function isExerciseLoaded(exerciseId) {
         return _.any(exercises, function(exercise) {
-            return $.data(exercise, "rootName") === exerciseName;
+            return $.data(exercise, "rootName") === exerciseId;
         });
     }
 
-    function startLoadingExercise(exerciseName) {
+    function startLoadingExercise(exerciseId, exerciseName, exerciseFile) {
 
-        if (typeof loadingExercises[exerciseName] !== "undefined") {
+        if (typeof loadingExercises[exerciseId] !== "undefined") {
             // Already started loading this exercise.
             return;
         }
 
-        if (isExerciseLoaded(exerciseName)) {
+        if (isExerciseLoaded(exerciseId)) {
             return;
         }
 
         var exerciseElem = $("<div>")
-            .data("name", exerciseName)
-            .data("rootName", exerciseName);
+            .data("name", exerciseId)
+            .data("displayName", exerciseName)
+            .data("fileName", exerciseFile)
+            .data("rootName", exerciseId);
 
         // Queue up an exercise load
         loadExercise.call(exerciseElem, function() {
 
             // Trigger load completion event for this exercise
-            $(Khan).trigger("exerciseLoaded:" + exerciseName);
+            $(Khan).trigger("exerciseLoaded:" + exerciseId);
 
-            delete loadingExercises[exerciseName];
+            delete loadingExercises[exerciseId];
 
         });
 
@@ -904,13 +908,19 @@ var Khan = (function() {
     function loadAndRenderExercise(nextUserExercise) {
 
         setUserExercise(nextUserExercise);
-        exerciseName = userExercise.exerciseModel.name;
+        exerciseId = userExercise.exerciseModel.name;
+        exerciseName = userExercise.exerciseModel.displayName;
+        exerciseFile = userExercise.exerciseModel.fileName;
+        // TODO(eater): remove this once all of the exercises in the datastore have filename properties
+        if (exerciseFile == null || exerciseFile == "") {
+            exerciseFile = exerciseId + ".html";
+        }
 
         function finishRender() {
 
             // Get all problems of this exercise type...
             var problems = exercises.filter(function() {
-                return $.data(this, "rootName") === exerciseName;
+                return $.data(this, "rootName") === exerciseId;
             }).children(".problems").children();
 
             // ...and create a new problem bag with problems of our new exercise type.
@@ -932,14 +942,14 @@ var Khan = (function() {
 
         }
 
-        if (isExerciseLoaded(exerciseName)) {
+        if (isExerciseLoaded(exerciseId)) {
             finishRender();
         } else {
-            startLoadingExercise(exerciseName);
+            startLoadingExercise(exerciseId, exerciseName, exerciseFile);
 
             $(Khan)
-                .unbind("exerciseLoaded:" + exerciseName)
-                .bind("exerciseLoaded:" + exerciseName, function() {
+                .unbind("exerciseLoaded:" + exerciseId)
+                .bind("exerciseLoaded:" + exerciseId, function() {
                     finishRender();
                 });
         }
@@ -1223,10 +1233,10 @@ var Khan = (function() {
             var timelineEvents, timeline;
 
             var timelinecontainer = $("<div id='timelinecontainer'>")
-                .append("<div>\
-                        <div id='previous-problem' class='simple-button action-gradient'>Previous Problem</div>\
-                        <div id='previous-step' class='simple-button action-gradient'><span>Previous Step</span></div>\
-                        </div>")
+                .append("<div>\n" +
+                        "<div id='previous-problem' class='simple-button action-gradient'>Previous Problem</div>\n" +
+                        "<div id='previous-step' class='simple-button action-gradient'><span>Previous Step</span></div>\n" +
+                        "</div>")
                 .insertBefore("#problem-and-answer");
 
             $.fn.disable = function() {
@@ -1255,10 +1265,10 @@ var Khan = (function() {
             timelineEvents = $("<div id='timeline-events'>").appendTo(timeline);
 
             timelinecontainer
-                .append("<div>\
-                        <div id='next-problem' class='simple-button action-gradient'>Next Problem</div>\
-                        <div id='next-step' class='simple-button action-gradient'><span>Next Step</span></div>\
-                        </div>");
+                .append("<div>\n" +
+                        "<div id='next-problem' class='simple-button action-gradient'>Next Problem</div>\n" +
+                        "<div id='next-step' class='simple-button action-gradient'><span>Next Step</span></div>\n" +
+                        "</div>");
 
             $("<div class='user-activity correct-activity'>Started</div>")
                 .data("hint", false)
@@ -1461,8 +1471,6 @@ var Khan = (function() {
                 });
             };
 
-            MathJax.Hub.Queue(function() {create(0);});
-
             var activate = function(slideNum) {
                 var hint, thisState,
                     thisSlide = states.eq(slideNum),
@@ -1511,6 +1519,8 @@ var Khan = (function() {
                     }
                 }
             };
+
+            MathJax.Hub.Queue(function() {create(0);});
 
             // Allow users to use arrow keys to move up and down the timeline
             $(document).keydown(function(event) {
@@ -1589,8 +1599,8 @@ var Khan = (function() {
                 }
             });
             var debugWrap = $("#debug").empty();
-            var debugURL = window.location.protocol + "//" + window.location.host + window.location.pathname
-                + "?debug&problem=" + problemID;
+            var debugURL = window.location.protocol + "//" + window.location.host + window.location.pathname +
+                "?debug&problem=" + problemID;
 
             $("<h3>Debug Info</h3>").appendTo(debugWrap);
 
@@ -1792,7 +1802,7 @@ var Khan = (function() {
 
                 // A hash representing the exercise
                 // TODO: Populate this from somewhere
-                sha1: typeof userExercise !== "undefined" ? userExercise.exerciseModel.sha1 : exerciseName,
+                sha1: typeof userExercise !== "undefined" ? userExercise.exerciseModel.sha1 : exerciseId,
 
                 // The seed that was used for generating the problem
                 seed: problemSeed,
@@ -1807,7 +1817,22 @@ var Khan = (function() {
                 topic_mode: (!testMode && !Exercises.reviewMode && !Exercises.practiceMode) ? 1 : 0,
 
                 // Request camelCasing in returned response
-                casing: "camel"
+                casing: "camel",
+
+                // The current card data
+                card: !testMode && JSON.stringify(Exercises.currentCard),
+
+                // Unique ID of the cached stack
+                stack_uid: !testMode && Exercises.completeStack.getUid(),
+
+                // The current topic, if any
+                topic_id: !testMode && Exercises.topic && Exercises.topic.id,
+
+                // How many cards the user has already done
+                cards_done: !testMode && Exercises.completeStack.length,
+
+                // How many cards the user has left to do
+                cards_left: !testMode && (Exercises.incompleteStack.length - 1)
             };
         }
 
@@ -1862,6 +1887,12 @@ var Khan = (function() {
                 }
             }
 
+            if (pass === true) {
+                // Problem has been completed but pending data request being
+                // sent to server.
+                $(Khan).trigger("problemDone");
+            }
+
             // Save the problem results to the server
             var curTime = new Date().getTime();
             var data = buildAttemptData(pass, ++attempts, JSON.stringify(validator.guess), curTime);
@@ -1880,9 +1911,12 @@ var Khan = (function() {
                 // Hide the page so users don't continue
                 $("#problem-and-answer").css("visibility", "hidden");
 
+                // Warn user about problem, encourage to reload page
                 warn(
                     "This page is out of date. You need to <a href='" + window.location.href +
-                    "'>reload this page</a>, but don't worry, you haven't lost any progress."
+                    "'>refresh</a>, but don't worry, you haven't lost progress. " +
+                    "If you think this is a mistake, " + 
+                    "<a href='http://www.khanacademy.org/reportissue?type=Defect&issue_labels='>tell us</a>."
                 );
 
             }, "attempt_hint_queue");
@@ -1914,18 +1948,17 @@ var Khan = (function() {
                 fast: (typeof userExercise !== "undefined" && userExercise.secondsPerFastProblem >= data.time_taken)
             });
 
-            if (pass === true) {
-                // Problem has been completed -- now waiting on user to
-                // move to next problem.
-                $(Khan).trigger("problemDone");
-            }
-
             return false;
         }
 
         // Watch for when the next button is clicked
         $("#next-question-button").click(function(ev) {
             $(Khan).trigger("gotoNextProblem");
+
+            // Disable next question button until next time
+            $(this)
+                .attr("disabled", true)
+                .addClass("buttonDisabled");
         });
 
         // If happy face is clicked, pass click on through.
@@ -1943,8 +1976,8 @@ var Khan = (function() {
 
                 hintsUsed += 1;
 
-                $(this)
-                    .val($(this).data("buttonText") || "I'd like another hint (" + hints.length + " remaining)");
+                var stepsLeft = hints.length + " step" + (hints.length === 1 ? "" : "s") + " left";
+                $(this).val($(this).data("buttonText") || "I'd like another hint (" + stepsLeft + ")");
 
                 var problem = $(hint).parent();
 
@@ -2028,14 +2061,13 @@ var Khan = (function() {
             // don't do anything if the user clicked a second time quickly
             if ($("#issue form").css("display") === "none") return;
 
-            var pretitle = deslugify(exerciseName),
+            var pretitle = exerciseName,
                 type = $("input[name=issue-type]:checked").prop("id"),
                 title = $("#issue-title").val(),
                 email = $("#issue-email").val(),
-                path = exerciseName + ".html"
-                    + "?seed=" + problemSeed
-                    + "&problem=" + problemID,
-                pathlink = "[" + path + (exercise.data("name") != null && exercise.data("name") !== exerciseName ? " (" + exercise.data("name") + ")" : "") + "](http://sandcastle.khanacademy.org/media/castles/Khan:master/exercises/" + path + "&debug)",
+                path = exerciseFile + "?seed=" +
+                    problemSeed + "&problem=" + problemID,
+                pathlink = "[" + path + (exercise.data("name") != null && exercise.data("name") !== exerciseId ? " (" + exercise.data("name") + ")" : "") + "](http://sandcastle.khanacademy.org/media/castles/Khan:master/exercises/" + path + "&debug)",
                 historyLink = "[Answer timeline](" + "http://sandcastle.khanacademy.org/media/castles/Khan:master/exercises/" + path + "&debug&activity=" + encodeURIComponent(JSON.stringify(userActivityLog)).replace(/\)/g, "\\)") + ")",
                 agent = navigator.userAgent,
                 mathjaxInfo = "MathJax is " + (typeof MathJax === "undefined" ? "NOT loaded" :
@@ -2126,9 +2158,8 @@ var Khan = (function() {
 
                 url: (testMode ? "http://www.khanacademy.org/" : "/") + "githubpost",
                 type: testMode ? "GET" : "POST",
-                data: testMode
-                    ? {json: JSON.stringify(dataObj)}
-                    : JSON.stringify(dataObj),
+                data: testMode ? {json: JSON.stringify(dataObj)} :
+                    JSON.stringify(dataObj),
                 contentType: testMode ? "application/x-www-form-urlencoded" : "application/json",
                 dataType: testMode ? "jsonp" : "json",
                 success: function(json) {
@@ -2223,8 +2254,8 @@ var Khan = (function() {
                 var dump = dataDump.problems.pop(),
                     prettyDump = "```js\n" + JSON.stringify(dump) + "\n```",
                     fileName = window.location.pathname.replace(/^.+\//, ""),
-                    path = fileName + "?problem=" + problemID
-                        + "&seed=" + problemSeed;
+                    path = fileName + "?problem=" + problemID +
+                        "&seed=" + problemSeed;
 
                 var title = encodeURIComponent("Issue Found in Testing - " + $("title").html()),
                     body = encodeURIComponent([description, path, prettyDump, navigator.userAgent].join("\n\n")),
@@ -2384,7 +2415,7 @@ var Khan = (function() {
                 warn(data.text, data.showClose);
             })
             .bind("upcomingExercise", function(ev, data) {
-                startLoadingExercise(data.exerciseName);
+                startLoadingExercise(data.exerciseId, data.exerciseName, data.exerciseFile);
             });
     }
 
@@ -2412,7 +2443,7 @@ var Khan = (function() {
         userExercise = data;
 
         if (data && data.exercise) {
-            exerciseName = data.exercise;
+            exerciseId = data.exercise;
         }
 
         $(Khan).trigger("updateUserExercise", userExercise);
@@ -2448,7 +2479,7 @@ var Khan = (function() {
 
         var request = {
             // Do a request to the server API
-            url: server + "/api/v1/user/exercises/" + exerciseName + "/" + method,
+            url: server + "/api/v1/user/exercises/" + exerciseId + "/" + method,
             type: "POST",
             data: data,
             dataType: "json",
@@ -2471,7 +2502,17 @@ var Khan = (function() {
             },
 
             // Handle error edge case
-            error: fnError
+            error: function() {
+                // Clear the queue so we don't spit out a bunch of
+                // queued up requests after the error
+                if (queue && requestQueue[queue]) {
+                    requestQueue[queue].clearQueue();
+                }
+
+                if ($.isFunction(fnError)) {
+                    fnError();
+                }
+            }
         };
 
         // Send request and return a jqXHR (which implements the Promise interface)
@@ -2514,9 +2555,14 @@ var Khan = (function() {
 
     function loadExercise(callback) {
         var self = $(this).detach();
-        var name = self.data("name");
+        var id = self.data("name");
         var weight = self.data("weight");
         var rootName = self.data("rootName");
+        var fileName = self.data("fileName");
+        // TODO(eater): remove this once all of the exercises in the datastore have filename properties
+        if (fileName == null || fileName == "") {
+            fileName = id + ".html";
+        }
 
         if (!loadingExercises[rootName]) {
             loadingExercises[rootName] = 0;
@@ -2525,12 +2571,12 @@ var Khan = (function() {
         loadingExercises[rootName]++;
 
         // Packing occurs on the server but at the same "exercises/" URL
-        $.get(urlBase + "exercises/" + name + ".html", function(data, status, xhr) {
+        $.get(urlBase + "exercises/" + fileName, function(data, status, xhr) {
             var match, newContents;
 
             if (!(/success|notmodified/).test(status)) {
                 // Maybe loading from a file:// URL?
-                Khan.error("Error loading exercise from file " + name + ".html: " + xhr.status + " " + xhr.statusText);
+                Khan.error("Error loading exercise from file " + fileName + xhr.status + " " + xhr.statusText);
                 return;
             }
 
@@ -2553,9 +2599,9 @@ var Khan = (function() {
             // Throw out divs that just load other exercises
             newContents = newContents.not("[data-name]");
 
-            // Save the filename and weights
+            // Save the id, fileName and weights
             // TODO(david): Make sure weights work for recursively-loaded exercises.
-            newContents.data("name", name).data("weight", weight);
+            newContents.data("name", id).data("fileName", fileName).data("weight", weight);
 
             // Add the new exercise elements to the exercises DOM set
             exercises = exercises.add(newContents);
@@ -2647,7 +2693,8 @@ var Khan = (function() {
 
         function injectTestModeSite(html, htmlExercise) {
             $("body").prepend(html);
-            $("#container").html(htmlExercise);
+            $("#container").html("<h2 style='padding-left: 20px; margin-left: 80px;'>"
+                    + document.title + "</h2>" + htmlExercise);
 
             if (Khan.query.layout === "lite") {
                 $("html").addClass("lite");
