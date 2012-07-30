@@ -4,8 +4,8 @@ $.extend(KhanUtil, {
     cleanMath: function(expr) {
         return typeof expr === "string" ?
             KhanUtil.tmpl.cleanHTML(expr)
-                .replace(/\+ -/g, "- ")
-                .replace(/- -/g, "+ ")
+                .replace(/\+\s*-/g, "- ")
+                .replace(/-\s*-/g, "+ ")
                 .replace(/\^1/g, "") :
             expr;
     },
@@ -76,6 +76,14 @@ $.extend(KhanUtil, {
             return Math.ceil(x - 0.001);
         }
         return Math.floor(x + 0.001);
+    },
+
+    factorial: function(x) {
+        if (x <= 1) {
+            return x;
+        } else {
+            return x * KhanUtil.factorial(x-1);
+        }
     },
 
     getGCD: function(a, b) {

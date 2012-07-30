@@ -90,45 +90,6 @@ function rectchart(divisions, colors, y) {
     return set;
 }
 
-// for line graph intuition
-function updateEquation() {
-    var graph = KhanUtil.currentGraph;
-    graph.plot.remove();
-    graph.style({
-        clipRect: [[-10, -10], [20, 20]]
-    }, function() {
-        var ell = function(x) {
-            return x * graph.MN / graph.MD + graph.BN / graph.BD;
-        };
-        graph.plot = graph.line([-10, ell(-10)], [10, ell(10)]);
-    });
-
-    graph.labelHolder.remove();
-
-    $("#equationAnswer").html("<code>y =" + KhanUtil.fractionReduce(graph.MN, graph.MD) + "x +" + KhanUtil.fractionReduce(graph.BN, graph.BD) + "</code>").tmpl();
-    $("#slope-sol input").val((graph.MN / graph.MD) + "");
-    $("#intercept-sol input").val((graph.BN / graph.BD) + "");
-}
-
-// for line graph intuition
-function changeSlope(dir) {
-    var graph = KhanUtil.currentGraph;
-    var prevDenominator = graph.MD;
-    graph.MD = KhanUtil.getLCM(prevDenominator, graph.INCR);
-    graph.MN = (graph.MD / prevDenominator * graph.MN) + (dir * graph.MD / graph.INCR);
-    updateEquation();
-}
-
-// for line graph intuition
-function changeIntercept(dir) {
-    var graph = KhanUtil.currentGraph;
-    var prevDenominator = graph.BD;
-    graph.BD = KhanUtil.getLCM(prevDenominator, graph.INCR);
-    graph.BN = (graph.BD / prevDenominator * graph.BN)
-        + (dir * graph.BD / graph.INCR);
-    updateEquation();
-}
-
 function Parabola(lc, x, y) {
     var leadingCoefficient = lc;
     var x1 = x;
@@ -291,6 +252,32 @@ function ParallelLines(x1, y1, x2, y2, distance) {
         var graph = KhanUtil.currentGraph;
         graph.line([x1, y1], [x2, y2]);
         graph.line([x1, y1 + distance], [x2, y2 + distance]);
+    };
+
+    this.drawMarkers = function(position) {
+        var graph = KhanUtil.currentGraph;
+        var pmarkX = (x2 - x1) / 2 + x1;
+        if (position === "right" || (position >= 40 && position <= 140)) {
+            pmarkX = x2 - 55 / graph.scaleVector([1, 1])[0];
+        } else if (position === "left") {
+            pmarkX = x1 + 50 / graph.scaleVector([1, 1])[0];
+        }
+        var pmarkX1 = pmarkX;
+        var pmarkX2 = pmarkX + 5 / graph.scaleVector([1, 1])[0];
+        var pmarkW = 5 / graph.scaleVector([1, 1])[0];
+        var pmarkH = 5 / graph.scaleVector([1, 1])[1];
+        graph.path([[pmarkX1 - pmarkW, y1 + pmarkH],
+            [pmarkX1, y1],
+            [pmarkX1 - pmarkW, y1 - pmarkH]]);
+        graph.path([[pmarkX2 - pmarkW, y1 + pmarkH],
+            [pmarkX2, y1],
+            [pmarkX2 - pmarkW, y1 - pmarkH]]);
+        graph.path([[pmarkX1 - pmarkW, y1 + pmarkH + distance],
+            [pmarkX1, y1 + distance],
+            [pmarkX1 - pmarkW, y1 - pmarkH + distance]]);
+        graph.path([[pmarkX2 - pmarkW, y1 + pmarkH + distance],
+            [pmarkX2, y1 + distance],
+            [pmarkX2 - pmarkW, y1 - pmarkH + distance]]);
     };
 
     this.drawTransverse = function(angleDeg) {
