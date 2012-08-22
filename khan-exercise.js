@@ -75,8 +75,11 @@ var Khan = (function() {
         });
     }
 
-    // Prime numbers used for jumping through exercises
-    var primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43,
+    // Numbers which are coprime to the number of bins, used for jumping through
+    // exercises.  To quickly test a number in python use code like:
+    // import fractions
+    // fractions.gcd( 197, 200)
+    var primes = [197, 3, 193, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43,
     47, 53, 59, 61, 67, 71, 73, 79, 83],
 
     /*
@@ -163,7 +166,9 @@ var Khan = (function() {
     exerciseName = deslugify(exerciseId),
 
     // Bin users into a certain number of realms so that
-    // there is some level of reproducability in their questions
+    // there is some level of reproducability in their questions.
+    // If you change this, make sure all entries in the array "primes" 
+    // set above are coprime to the new value.
     bins = 200,
 
     // Number of past problems to consider when avoiding duplicates
@@ -1048,7 +1053,7 @@ var Khan = (function() {
 
         // In either of these testing situations,
         } else if ((testMode && Khan.query.test != null) || user == null) {
-            problemSeed = randomSeed % bins;
+            problemSeed = Math.abs(randomSeed % bins);
         }
 
         // Set randomSeed to what problemSeed is (save problemSeed for recall later)
@@ -2235,9 +2240,10 @@ var Khan = (function() {
                 agent = navigator.userAgent,
                 mathjaxInfo = "MathJax is " + (typeof MathJax === "undefined" ? "NOT loaded" :
                     ("loaded, " + (MathJax.isReady ? "" : "NOT ") + "ready, queue length: " + MathJax.Hub.queue.queue.length)),
+                userHash = "User hash: " + crc32(user),
                 sessionStorageInfo = (typeof sessionStorage === "undefined" || typeof sessionStorage.getItem === "undefined" ? "sessionStorage NOT enabled" : null),
                 warningInfo = $("#warning-bar-content").text(),
-                parts = [$("#issue-body").val() || null, pathlink, historyLink, "    " + JSON.stringify(guessLog), agent, sessionStorageInfo, mathjaxInfo, warningInfo, debugLogLog.join("\n")],
+                parts = [$("#issue-body").val() || null, pathlink, historyLink, "    " + JSON.stringify(guessLog), agent, sessionStorageInfo, mathjaxInfo, userHash, warningInfo],
                 body = $.grep(parts, function(e) { return e != null; }).join("\n\n");
 
             var mathjaxLoadFailures = $.map(MathJax.Ajax.loading, function(info, script) {

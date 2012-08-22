@@ -90,7 +90,7 @@ end
 
 FileUtils.mkdir_p("exercises-packed")
 
-Dir["exercises/**/*.html"].each do |filename|
+Dir["exercises/**/*.html"].sort.each do |filename|
   packed_filename = filename.gsub(/^exercises\//, "exercises-packed/")
   next if File.exist?(packed_filename) && File.mtime(packed_filename) > File.mtime(filename)
 
@@ -156,3 +156,5 @@ Dir["exercises/**/*.html"].each do |filename|
     f.write doc.to_html
   end
 end
+
+exit! 0
