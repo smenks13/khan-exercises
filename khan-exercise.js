@@ -167,7 +167,7 @@ var Khan = (function() {
 
     // Bin users into a certain number of realms so that
     // there is some level of reproducability in their questions.
-    // If you change this, make sure all entries in the array "primes" 
+    // If you change this, make sure all entries in the array "primes"
     // set above are coprime to the new value.
     bins = 200,
 
@@ -543,7 +543,8 @@ var Khan = (function() {
                         // because it was removed from the DOM, recreate a new
                         // scratchpad.
                         if (!pad || !$("#scratchpad div").children().length) {
-                            pad = new Scratchpad($("#scratchpad div")[0]);
+                            pad = new DrawingScratchpad(
+                                $("#scratchpad div")[0]);
                         }
                     };
 
@@ -924,6 +925,7 @@ var Khan = (function() {
 
             // Trigger load completion event for this exercise
             $(Khan).trigger("exerciseLoaded:" + exerciseId);
+            $(Khan).trigger("contentLoaded");
 
             delete loadingExercises[exerciseId];
 
@@ -1380,6 +1382,36 @@ var Khan = (function() {
             timeline = $("<div id='timeline'>").appendTo(timelinecontainer);
             timelineEvents = $("<div id='timeline-events'>").appendTo(timeline);
 
+            // Grab both scrubbers packaged up in one jQuery object. This is
+            // wrapped in a function just because the variables held inside are
+            // not used elsewhere
+            var scrubber = (function() {
+                var scrubberCss = {
+                            display: "block",
+                            width: "0",
+                            height: "0",
+                            "border-left": "6px solid transparent",
+                            "border-right": "6px solid transparent",
+                            position: "absolute",
+                        },
+
+                    scrubber1 = $("<div>")
+                        .css($.extend({}, scrubberCss, {
+                            "border-top": "6px solid #888",
+                            top: "0"
+                        }))
+                        .appendTo(timeline),
+
+                    scrubber2 = $("<div>")
+                        .css($.extend({}, scrubberCss, {
+                            "border-bottom": "6px solid #888",
+                            bottom: "0"
+                        }))
+                        .appendTo(timeline);
+
+                return scrubber1.add(scrubber2);
+            })();
+
             timelinecontainer
                 .append("<div>\n" +
                         "<div id='next-problem' class='simple-button'>Next Problem</div>\n" +
@@ -1489,35 +1521,18 @@ var Khan = (function() {
             // So highlighting doesn't fade to white
             $("#solutionarea").css("background-color", $("#answercontent").css("background-color"));
 
-            $.fn.scrubber = function() {
-                // create triangular scrubbers above and below current selection
+            // scroll to the slide held in state
+            var scrub = function(state, fadeTime) {
                 var timeline = $("#timeline"),
-                    scrubber1 = $("#scrubber1"),
-                    scrubber2 = $("#scrubber2"),
-                    scrubberCss = {
-                        display: "block",
-                        width: "0",
-                        height: "0",
-                        "border-left": "6px solid transparent",
-                        "border-right": "6px solid transparent",
-                        position: "absolute",
-                        left: (timeline.scrollLeft() + this.position().left + this.outerWidth() / 2 + 2) + "px"
-                    };
+                    slide = state.slide;
 
-                scrubber1 = scrubber1.length ? scrubber1 : $("<div id='scrubber1'>").appendTo(timeline);
-                scrubber2 = scrubber2.length ? scrubber2 : $("<div id='scrubber2'>").appendTo(timeline);
+                timeline.animate({
+                    scrollLeft: state.scroll
+                }, fadeTime);
 
-                scrubber1.css($.extend({}, scrubberCss, {
-                    "border-bottom": "6px solid #888",
-                    bottom: "0"
-                }));
-
-                scrubber2.css($.extend({}, scrubberCss, {
-                    "border-top": "6px solid #888",
-                    top: "0"
-                }));
-
-                return this;
+                scrubber.animate({
+                    left: (timeline.scrollLeft() + slide.position().left + slide.outerWidth() / 2 + 2) + "px"
+                }, fadeTime);
             };
 
             // Set the width of the timeline (starts as 10000px) after MathJax loads
@@ -1527,7 +1542,12 @@ var Khan = (function() {
                     maxHeight = Math.max(maxHeight, $(this).outerHeight(true));
                 });
 
-                if (maxHeight > timelinecontainer.height()) {
+                // This thing looks ridiculous above about 100px
+                if (maxHeight > 100) {
+                    timelineEvents.children('.correct-activity, .incorrect-activity').each(function() {
+                        $(this).text('Answer');
+                    });
+                } else if (maxHeight > timelinecontainer.height()) {
                     timelinecontainer.height(maxHeight);
                     timeline.height(maxHeight);
                 }
@@ -1544,7 +1564,7 @@ var Khan = (function() {
                     itemMiddle = itemOffset + thisSlide.width() / 2,
                     offset = timelineMiddle - itemMiddle,
                     currentScroll = timeline.scrollLeft(),
-                    timelineMax = states.eq(-1).position().left + states.eq(-1).width(),
+                    timelineMax = states.eq(-1).position().left + states.eq(-1).width() + 5,
                     scroll = Math.min(currentScroll - offset, currentScroll + timelineMax - timeline.width() + 25);
 
                 if (hintNum >= 0) {
@@ -1596,11 +1616,7 @@ var Khan = (function() {
                 if (statelist[slideNum]) {
                     thisState = statelist[slideNum];
 
-                    timeline.animate({
-                        scrollLeft: thisState.scroll
-                    }, fadeTime, function() {
-                        thisState.slide.scrubber();
-                    });
+                    scrub(thisState, fadeTime);
 
                     $("#workarea").remove();
                     $("#hintsarea").remove();
@@ -1638,16 +1654,15 @@ var Khan = (function() {
 
             MathJax.Hub.Queue(function() {create(0);});
 
-            // Allow users to use arrow keys to move up and down the timeline
+            // Allow users to use arrow keys to move left and right in the
+            // timeline
             $(document).keydown(function(event) {
-                if (event.keyCode !== 37 && event.keyCode !== 39) {
-                    return;
-                }
-
                 if (event.keyCode === 37) { // left
                     currentSlide -= 1;
-                } else { // right
+                } else if (event.keyCode === 39) { // right
                     currentSlide += 1;
+                } else {
+                    return;
                 }
 
                 currentSlide = Math.min(currentSlide, numSlides - 1);
@@ -1721,7 +1736,7 @@ var Khan = (function() {
                     $("#hint").click();
                 }
             });
-            var debugWrap = $("#debug").empty();
+            var debugWrap = $("#debug").css({"margin-right": "15px"}).empty();
             var debugURL = window.location.protocol + "//" + window.location.host + window.location.pathname +
                 "?debug&problem=" + problemID;
 
@@ -1757,7 +1772,6 @@ var Khan = (function() {
                 var probID = $(prob).attr("id") || n;
                 links.append($("<div>")
                     .css({
-                        "width": "200px",
                         "padding-left": "20px",
                         "outline":
                             (problemID === probID || problemID === '' + n) ?
@@ -1833,7 +1847,7 @@ var Khan = (function() {
         $(Khan).trigger("newProblem");
 
         // If the textbox is empty disable "Check Answer" button
-        // Note: We don't do this for number line etc.
+        // Note: We don't do this for multiple choice, number line, etc.
         if (answerType === "text" || answerType === "number") {
             var checkAnswerButton = $("#check-answer-button");
             checkAnswerButton.attr("disabled", "disabled").attr(
@@ -1842,12 +1856,12 @@ var Khan = (function() {
             // in a number and hit enter quickly do not have to wait for the
             // button to be enabled by the key up
             $("#solutionarea")
-                .keypress(function(e) {
+                .on("keypress.emptyAnswer", function(e) {
                     if (e.keyCode !== 13) {
                         checkAnswerButton.removeAttr("disabled").removeAttr("title");
                     }
                 })
-                .keyup(function() {
+                .on("keyup.emptyAnswer", function() {
                     validator();
                     if (checkIfAnswerEmpty()) {
                         checkAnswerButton.attr("disabled", "disabled");
@@ -1876,6 +1890,10 @@ var Khan = (function() {
         // Wipe out any previous problem
         $("#workarea, #hintsarea").runModules(problem, "Cleanup").empty();
         $("#hint").attr("disabled", false);
+
+        // Take off the event handlers for disabling check answer; we'll rebind
+        // if we actually want them
+        $("#solutionarea").off(".emptyAnswer");
 
         Khan.scratchpad.clear();
     }
@@ -2152,7 +2170,7 @@ var Khan = (function() {
                 $(this).val($(this).data("buttonText") || "I'd like another hint (" + stepsLeft + ")");
 
                 var problem = $(hint).parent();
-								
+
 				// Append first so MathJax can sense the surrounding CSS context properly
 				$(hint).appendTo("#hintsarea").runModules(problem);
 
@@ -2164,7 +2182,7 @@ var Khan = (function() {
                     $(hint).addClass("final_answer");
 
 					$(Khan).trigger("allHintsUsed");
-					
+
                     $(this).attr("disabled", true);
                 }
             }
@@ -2904,6 +2922,7 @@ var Khan = (function() {
                 problemBag = makeProblemBag(problems, 10);
             }
 
+            $("#positive-reinforcement").hide();
             // Generate the initial problem when dependencies are done being loaded
             var answerType = makeProblem();
         }
